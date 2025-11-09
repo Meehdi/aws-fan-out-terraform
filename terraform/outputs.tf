@@ -22,3 +22,8 @@ output "email_sender_queue_url" {
   description = "URL of the email sender SQS queue"
   value       = aws_sqs_queue.email_sender.url
 }
+
+output "lambda_role_arn" {
+  description = "ARN of the Lambda execution role"
+  value       = aws_iam_role.lambda_execution.arn
+}
