@@ -15,3 +15,9 @@ variable "table_name" {
   type        = string
   default     = "users"
 }
+
+variable "sender_email" {
+  description = "Email address for sending notifications (must be verified in SES)"
+  type        = string
+  default     = "noreply@example.com"
+}

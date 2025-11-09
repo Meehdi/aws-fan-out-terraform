@@ -27,3 +27,23 @@ output "lambda_role_arn" {
   description = "ARN of the Lambda execution role"
   value       = aws_iam_role.lambda_execution.arn
 }
+
+output "orchestrator_function_name" {
+  description = "Name of the orchestrator Lambda function"
+  value       = aws_lambda_function.orchestrator.function_name
+}
+
+output "orchestrator_function_arn" {
+  description = "ARN of the orchestrator Lambda function"
+  value       = aws_lambda_function.orchestrator.arn
+}
+
+output "db_writer_function_name" {
+  description = "Name of the DB writer Lambda function"
+  value       = aws_lambda_function.db_writer.function_name
+}
+
+output "email_sender_function_name" {
+  description = "Name of the email sender Lambda function"
+  value       = aws_lambda_function.email_sender.function_name
+}
