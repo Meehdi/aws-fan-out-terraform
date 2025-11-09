@@ -1,15 +1,14 @@
 {
-  "name": "orchestrator",
+  "name": "email-sender",
   "version": "1.0.0",
-  "description": "User registration orchestrator",
+  "description": "Send welcome email to new users",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
     "prebuild": "rm -rf dist"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.600.0",
-    "@aws-sdk/client-sns": "^3.600.0"
+    "@aws-sdk/client-ses": "^3.600.0"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.145",

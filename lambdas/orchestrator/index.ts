@@ -21,6 +21,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         const body: UserData = JSON.parse(event.body || "{}");
         const { username, email } = body;
 
+        // Validate input
         if (!username || !email) {
             return {
                 statusCode: 400,
@@ -52,7 +53,7 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
             };
         }
 
-
+        // Publish message to SNS topic (fan-out)
         const messageData = {
             username,
             email,

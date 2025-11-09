@@ -1,8 +1,8 @@
-import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
+import { DynamoDBClient, PutItemCommand } from "@aws-sdk/client-dynamodb";
 import { SQSEvent } from "aws-lambda";
 
-const sesClient = new SESClient({});
-const SENDER_EMAIL = process.env.SENDER_EMAIL || "noreply@example.com";
+const dynamoClient = new DynamoDBClient({});
+const TABLE_NAME = process.env.TABLE_NAME!;
 
 interface UserMessage {
     username: string;
@@ -20,58 +20,29 @@ export const handler = async (event: SQSEvent): Promise<{ statusCode: number; bo
             const snsMessage = JSON.parse(record.body);
             const userData: UserMessage = JSON.parse(snsMessage.Message);
 
-            console.log("Sending email to:", userData.email);
+            console.log("Processing user data:", userData);
 
-            // Send email via SES
-            const emailParams = {
-                Source: SENDER_EMAIL,
-                Destination: {
-                    ToAddresses: [userData.email]
-                },
-                Message: {
-                    Subject: {
-                        Data: "Welcome to Our Platform!"
-                    },
-                    Body: {
-                        Text: {
-                            Data: `Hello ${userData.username},\n\nWelcome to our platform! Your account has been successfully created.\n\nEmail: ${userData.email}\nRegistered at: ${userData.timestamp}\n\nBest regards,\nThe Team`
-                        },
-                        Html: {
-                            Data: `
-                <html>
-                  <body>
-                    <h2>Hello ${userData.username},</h2>
-                    <p>Welcome to our platform! Your account has been successfully created.</p>
-                    <ul>
-                      <li><strong>Email:</strong> ${userData.email}</li>
-                      <li><strong>Registered at:</strong> ${userData.timestamp}</li>
-                    </ul>
-                    <p>Best regards,<br/>The Team</p>
-                  </body>
-                </html>
-              `
-                        }
-                    }
+            // Write to DynamoDB
+            const putItemParams = {
+                TableName: TABLE_NAME,
+                Item: {
+                    email: { S: userData.email },
+                    username: { S: userData.username },
+                    createdAt: { S: userData.timestamp }
                 }
             };
 
-            await sesClient.send(new SendEmailCommand(emailParams));
-            console.log("Email sent successfully to:", userData.email);
+            await dynamoClient.send(new PutItemCommand(putItemParams));
+            console.log("User saved to DynamoDB:", userData.email);
         }
 
         return {
             statusCode: 200,
-            body: JSON.stringify({ message: "Emails sent successfully" })
+            body: JSON.stringify({ message: "Users processed successfully" })
         };
 
     } catch (error) {
-        console.error("Error sending email:", error);
-        return {
-            statusCode: 200,
-            body: JSON.stringify({
-                message: "Processed with errors",
-                error: error instanceof Error ? error.message : "Unknown error"
-            })
-        };
+        console.error("Error processing records:", error);
+        throw error; // Let SQS retry
     }
 };

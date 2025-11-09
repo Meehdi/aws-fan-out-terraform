@@ -1,89 +1,75 @@
-import { DynamoDBClient, GetItemCommand } from "@aws-sdk/client-dynamodb";
-import { SNSClient, PublishCommand } from "@aws-sdk/client-sns";
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
+import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
+import { SQSEvent } from "aws-lambda";
 
-const dynamoClient = new DynamoDBClient({});
-const snsClient = new SNSClient({});
+const sesClient = new SESClient({});
+const SENDER_EMAIL = process.env.SENDER_EMAIL || "noreply@example.com";
 
-const TABLE_NAME = process.env.TABLE_NAME!;
-const SNS_TOPIC_ARN = process.env.SNS_TOPIC_ARN!;
-
-interface UserData {
+interface UserMessage {
     username: string;
     email: string;
+    timestamp: string;
 }
 
-export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+export const handler = async (event: SQSEvent): Promise<{ statusCode: number; body: string }> => {
     console.log("Event received:", JSON.stringify(event, null, 2));
 
     try {
-        // Parse request body
-        const body: UserData = JSON.parse(event.body || "{}");
-        const { username, email } = body;
+        // Process each SQS record
+        for (const record of event.Records) {
+            // Parse SNS message from SQS
+            const snsMessage = JSON.parse(record.body);
+            const userData: UserMessage = JSON.parse(snsMessage.Message);
 
-        if (!username || !email) {
-            return {
-                statusCode: 400,
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    message: "Missing required fields: username and email"
-                })
+            console.log("Sending email to:", userData.email);
+
+            // Send email via SES
+            const emailParams = {
+                Source: SENDER_EMAIL,
+                Destination: {
+                    ToAddresses: [userData.email]
+                },
+                Message: {
+                    Subject: {
+                        Data: "Welcome to Our Platform!"
+                    },
+                    Body: {
+                        Text: {
+                            Data: `Hello ${userData.username},\n\nWelcome to our platform! Your account has been successfully created.\n\nEmail: ${userData.email}\nRegistered at: ${userData.timestamp}\n\nBest regards,\nThe Team`
+                        },
+                        Html: {
+                            Data: `
+                <html>
+                  <body>
+                    <h2>Hello ${userData.username},</h2>
+                    <p>Welcome to our platform! Your account has been successfully created.</p>
+                    <ul>
+                      <li><strong>Email:</strong> ${userData.email}</li>
+                      <li><strong>Registered at:</strong> ${userData.timestamp}</li>
+                    </ul>
+                    <p>Best regards,<br/>The Team</p>
+                  </body>
+                </html>
+              `
+                        }
+                    }
+                }
             };
+
+            await sesClient.send(new SendEmailCommand(emailParams));
+            console.log("Email sent successfully to:", userData.email);
         }
-
-        // Check if email already exists in DynamoDB
-        const getItemParams = {
-            TableName: TABLE_NAME,
-            Key: {
-                email: { S: email }
-            }
-        };
-
-        const existingUser = await dynamoClient.send(new GetItemCommand(getItemParams));
-
-        if (existingUser.Item) {
-            console.log("User already exists:", email);
-            return {
-                statusCode: 409,
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    message: "User with this email already exists"
-                })
-            };
-        }
-
-
-        const messageData = {
-            username,
-            email,
-            timestamp: new Date().toISOString()
-        };
-
-        const publishParams = {
-            TopicArn: SNS_TOPIC_ARN,
-            Message: JSON.stringify(messageData),
-            Subject: "New User Registration"
-        };
-
-        await snsClient.send(new PublishCommand(publishParams));
-        console.log("Message published to SNS:", messageData);
 
         return {
-            statusCode: 201,
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                message: "User registration initiated successfully",
-                user: { username, email }
-            })
+            statusCode: 200,
+            body: JSON.stringify({ message: "Emails sent successfully" })
         };
 
     } catch (error) {
-        console.error("Error:", error);
+        console.error("Error sending email:", error);
         return {
-            statusCode: 500,
-            headers: { "Content-Type": "application/json" },
+            statusCode: 200,
             body: JSON.stringify({
-                message: "Internal server error",
+                message: "Processed with errors",
                 error: error instanceof Error ? error.message : "Unknown error"
             })
         };

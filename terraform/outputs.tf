@@ -47,3 +47,8 @@ output "email_sender_function_name" {
   description = "Name of the email sender Lambda function"
   value       = aws_lambda_function.email_sender.function_name
 }
+
+output "api_gateway_url" {
+  description = "API endpoint URL"
+  value       = "${aws_apigatewayv2_api.user_registration.api_endpoint}/users"
+}
